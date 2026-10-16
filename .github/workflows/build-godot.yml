@@ -1,0 +1,99 @@
+name: Check and build Serviter Godot for macOS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'godot/**'
+      - 'serviter/**'
+      - 'run_serviter_bridge.py'
+      - 'tests/**'
+      - '.github/workflows/build-godot.yml'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test requirements
+        run: python -m pip install -r requirements-dev.txt
+      - name: Python tests and syntax
+        run: |
+          python -m compileall -q serviter run_serviter_bridge.py tests
+          python -m pytest -q
+      - name: Download official Godot 4.7.2 Linux editor
+        run: |
+          curl -L --fail --retry 3 --retry-delay 5 \
+            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip \
+            -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp
+          chmod +x /tmp/Godot_v4.7.2-stable_linux.x86_64
+      - name: Parse Godot project and GDScript
+        run: |
+          set -o pipefail
+          /tmp/Godot_v4.7.2-stable_linux.x86_64 --headless --path godot --editor --quit 2>&1 | tee /tmp/godot-import.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|Parse Error:|Parser Error:' /tmp/godot-import.log
+
+  package-godot-macos:
+    needs: check
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install bridge build requirements
+        run: python -m pip install -r requirements-dev.txt
+      - name: Build local SSH bridge executable
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --console \
+            --name serviter-bridge \
+            --add-data 'serviter/remote_worker.py:.' \
+            run_serviter_bridge.py
+      - name: Get official Godot editor and export template
+        run: |
+          curl -L --fail --retry 3 --retry-delay 5 \
+            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_macos.universal.zip \
+            -o /tmp/godot-macos.zip
+          unzip -q /tmp/godot-macos.zip -d /tmp/godot-editor
+          find /tmp/godot-editor -maxdepth 5 -type f -name Godot -print
+          curl -L --fail --retry 3 --retry-delay 5 \
+            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz \
+            -o /tmp/godot-templates.tpz
+          TEMPLATE_DIR="$HOME/Library/Application Support/Godot/export_templates/4.7.2.stable"
+          mkdir -p "$TEMPLATE_DIR"
+          unzip -p /tmp/godot-templates.tpz templates/macos.zip > "$TEMPLATE_DIR/macos.zip"
+          unzip -p /tmp/godot-templates.tpz templates/version.txt > "$TEMPLATE_DIR/version.txt"
+          test -s "$TEMPLATE_DIR/macos.zip"
+      - name: Export Godot macOS bundle
+        run: |
+          set -euo pipefail
+          GODOT="$(find /tmp/godot-editor -maxdepth 6 -type f -name Godot | head -n 1)"
+          test -n "$GODOT"
+          chmod +x "$GODOT"
+          "$GODOT" --headless --path godot --editor --quit
+          mkdir -p godot/build/macOS
+          "$GODOT" --headless --path godot --export-release macOS build/macOS/Serviter.app
+          test -d godot/build/macOS/Serviter.app/Contents/MacOS
+          cp dist/serviter-bridge godot/build/macOS/Serviter.app/Contents/MacOS/serviter-bridge
+          chmod +x godot/build/macOS/Serviter.app/Contents/MacOS/serviter-bridge
+          # Ad-hoc signature, not notarized. No signing credentials are stored in GitHub.
+          codesign --force --deep --sign - godot/build/macOS/Serviter.app
+          ditto -c -k --sequesterRsrc --keepParent godot/build/macOS/Serviter.app Serviter-Godot-macOS.zip
+          ls -lh Serviter-Godot-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Serviter-Godot-macOS
+          path: Serviter-Godot-macOS.zip
+          retention-days: 14
+          if-no-files-found: error

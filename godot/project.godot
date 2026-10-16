@@ -1,0 +1,24 @@
+; Serviter desktop client — Godot 4.7.2, standard GDScript edition.
+config_version=5
+
+[application]
+config/name="Serviter"
+config/version="0.2.0"
+run/main_scene="res://ui/main.tscn"
+
+[display]
+window/size/viewport_width=1180
+window/size/viewport_height=840
+window/size/window_width_override=1180
+window/size/window_height_override=840
+window/size/mode=0
+window/size/resizable=true
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+textures/default_filters/use_nearest_mipmap_filter=false
+
+[gui]
+theme/default_font_size=15
