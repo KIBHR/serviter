@@ -34,6 +34,8 @@ var rollback_button: Button
 var status_label: Label
 var log_box: RichTextLabel
 var indicator: ColorRect
+var fullscreen_button: Button
+var field_grid: GridContainer
 var request: HTTPRequest
 var startup_timer: Timer
 var confirm_dialog: ConfirmationDialog
@@ -55,8 +57,11 @@ var last_config: Dictionary = {}
 
 
 func _ready() -> void:
-    get_window().min_size = Vector2i(870, 670)
+    get_window().min_size = Vector2i(720, 520)
     _draw_interface()
+    resized.connect(_update_responsive_layout)
+    _update_responsive_layout()
+    _update_fullscreen_button()
     request = HTTPRequest.new()
     request.timeout = 250.0
     request.use_threads = true
@@ -67,6 +72,43 @@ func _ready() -> void:
     startup_timer.timeout.connect(_on_startup_timer)
     add_child(startup_timer)
     _start_bridge()
+
+
+func _unhandled_key_input(event: InputEvent) -> void:
+    if not (event is InputEventKey):
+        return
+    var key_event := event as InputEventKey
+    if not key_event.pressed or key_event.echo:
+        return
+    if key_event.keycode == KEY_F11:
+        _toggle_fullscreen()
+        get_viewport().set_input_as_handled()
+    elif key_event.keycode == KEY_ESCAPE and get_window().mode == Window.MODE_FULLSCREEN:
+        _toggle_fullscreen()
+        get_viewport().set_input_as_handled()
+
+
+func _toggle_fullscreen() -> void:
+    var window := get_window()
+    if window.mode == Window.MODE_FULLSCREEN or window.mode == Window.MODE_EXCLUSIVE_FULLSCREEN:
+        window.mode = Window.MODE_WINDOWED
+    else:
+        window.mode = Window.MODE_FULLSCREEN
+    _update_fullscreen_button()
+
+
+func _update_fullscreen_button() -> void:
+    if fullscreen_button == null:
+        return
+    var fullscreen := get_window().mode == Window.MODE_FULLSCREEN or get_window().mode == Window.MODE_EXCLUSIVE_FULLSCREEN
+    fullscreen_button.text = "Оконный режим · F11" if fullscreen else "На весь экран · F11"
+
+
+func _update_responsive_layout() -> void:
+    if field_grid == null:
+        return
+    # On smaller screens, stack the two sections so fields remain readable.
+    field_grid.columns = 1 if size.x < 1020 else 2
 
 
 func _exit_tree() -> void:
@@ -94,6 +136,11 @@ func _draw_interface() -> void:
     var gap := Control.new()
     gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     bar.add_child(gap)
+    fullscreen_button = _button("Оконный режим · F11", false)
+    fullscreen_button.custom_minimum_size = Vector2(190, 37)
+    fullscreen_button.tooltip_text = "F11 — переключить полный экран; Esc — выйти из полного экрана."
+    fullscreen_button.pressed.connect(_toggle_fullscreen)
+    bar.add_child(fullscreen_button)
     indicator = ColorRect.new()
     indicator.custom_minimum_size = Vector2(9, 9)
     indicator.color = GOLD
@@ -111,14 +158,16 @@ func _draw_interface() -> void:
     scroller.size_flags_vertical = Control.SIZE_EXPAND_FILL
     scroller.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
     stack.add_child(scroller)
-    var columns := HBoxContainer.new()
-    columns.add_theme_constant_override("separation", 22)
-    columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    scroller.add_child(columns)
+    field_grid = GridContainer.new()
+    field_grid.columns = 2
+    field_grid.add_theme_constant_override("h_separation", 22)
+    field_grid.add_theme_constant_override("v_separation", 22)
+    field_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    scroller.add_child(field_grid)
     var left := _column("01  /  СЕРВЕР")
     var right := _column("02  /  GITHUB И САЙТ")
-    columns.add_child(left)
-    columns.add_child(right)
+    field_grid.add_child(left)
+    field_grid.add_child(right)
     for i in range(FIELD_INFO.size()):
         var spec: Array = FIELD_INFO[i]
         _field(left if i < 6 else right, str(spec[0]), str(spec[1]), str(spec[2]), bool(spec[3]))

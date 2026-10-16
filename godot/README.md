@@ -12,6 +12,10 @@ The helper listens only on `127.0.0.1` at a random port. Godot generates a new c
 
 Install Godot 4.7.2 standard edition and Python 3.11+ with packages from repo root `requirements.txt`. Open the **`godot/project.godot`** project in Godot and run it (`F5`). Godot starts `run_serviter_bridge.py` from the repository root in editor mode. If Python is not on PATH, start Godot from a terminal with your Python virtual environment active.
 
+## Fullscreen display
+
+Serviter starts in **fullscreen mode** (Godot `Window.MODE_FULLSCREEN`). Press **F11** or click **«Оконный режим · F11»** in the top bar to switch to windowed mode. Press **Esc** while fullscreen to leave fullscreen. The two configuration columns automatically stack vertically on narrower screens; scroll to reach all fields.
+
 ## macOS app
 
 GitHub Actions workflow **Check and build Serviter Godot for macOS** automatically checks Python, parses the Godot project with Godot 4.7.2, builds separate Apple Silicon and Intel PyInstaller SSH helpers, exports a Universal macOS `.app` using official templates and packages both architecture-specific helpers together. Download **Actions → latest successful run → Artifacts → Serviter-Godot-macOS**. Extract the archive and open `Serviter.app`.
