@@ -41,6 +41,8 @@ var log_box: RichTextLabel
 var indicator: ColorRect
 var fullscreen_button: Button
 var field_grid: GridContainer
+var action_grid: GridContainer
+var bridge_is_editor_python := false
 var header_tagline: Label
 var request: HTTPRequest
 var startup_timer: Timer
@@ -63,7 +65,7 @@ var last_config: Dictionary = {}
 
 
 func _ready() -> void:
-    get_window().min_size = Vector2i(720, 520)
+    get_window().min_size = Vector2i(760, 540)
     _draw_interface()
     resized.connect(_update_responsive_layout)
     _update_responsive_layout()
@@ -115,6 +117,8 @@ func _update_responsive_layout() -> void:
         return
     # On smaller screens, stack the two sections so fields remain readable.
     field_grid.columns = 1 if size.x < 1300 else 2
+    if action_grid != null:
+        action_grid.columns = 1 if size.x < 900 else 3
     if header_tagline != null:
         header_tagline.visible = size.x >= 1020
 
@@ -127,6 +131,12 @@ func _exit_tree() -> void:
 
 
 func _draw_interface() -> void:
+    var background := ColorRect.new()
+    background.name = "Background"
+    background.color = BG
+    background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    add_child(background)
     var root := MarginContainer.new()
     root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     root.add_theme_constant_override("margin_left", 30)
@@ -140,6 +150,7 @@ func _draw_interface() -> void:
     var bar := HBoxContainer.new()
     stack.add_child(bar)
     var logo := _label("SERVITER", 38, AQUA)
+    logo.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
     bar.add_child(logo)
     var gap := Control.new()
     gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -154,12 +165,13 @@ func _draw_interface() -> void:
     indicator.color = GOLD
     bar.add_child(indicator)
     var tagline := _label("LOCAL DEPLOY / GODOT 4", 17, MUTED)
+    tagline.size_flags_horizontal = Control.SIZE_SHRINK_END
     bar.add_child(tagline)
     header_tagline = tagline
 
-    var title := _label("Публикация сайта без риска для игрового API", 30, FG)
+    var title := _label("Публикация сайта без риска для игрового API", 30, FG, true)
     stack.add_child(title)
-    var hint := _label("Шифрованный SSH/SFTP · проверка ключа · отдельный Apache vhost · HTTPS · откат", 19, MUTED)
+    var hint := _label("Шифрованный SSH/SFTP · проверка ключа · отдельный Apache vhost · HTTPS · откат", 19, MUTED, true)
     stack.add_child(hint)
     _rule(stack)
 
@@ -182,20 +194,22 @@ func _draw_interface() -> void:
         _field(left if i < 6 else right, str(spec[0]), str(spec[1]), str(spec[2]), bool(spec[3]))
 
     _rule(stack)
-    var controls := HBoxContainer.new()
-    controls.add_theme_constant_override("separation", 12)
-    stack.add_child(controls)
+    action_grid = GridContainer.new()
+    action_grid.columns = 3
+    action_grid.add_theme_constant_override("h_separation", 12)
+    action_grid.add_theme_constant_override("v_separation", 12)
+    stack.add_child(action_grid)
     check_button = _button("1  Проверить сервер", false)
     check_button.pressed.connect(_check_server)
-    controls.add_child(check_button)
+    action_grid.add_child(check_button)
     publish_button = _button("2  Опубликовать HTTPS", true)
     publish_button.pressed.connect(_confirm_publish)
-    controls.add_child(publish_button)
+    action_grid.add_child(publish_button)
     rollback_button = _button("↶  Откатить", false)
     rollback_button.pressed.connect(_confirm_rollback)
-    controls.add_child(rollback_button)
+    action_grid.add_child(rollback_button)
 
-    status_label = _label("Запуск защищённого локального модуля…", FONT_BODY, MUTED)
+    status_label = _label("Запуск защищённого локального модуля…", FONT_BODY, MUTED, true)
     stack.add_child(status_label)
     stack.add_child(_label("ЖУРНАЛ ОПЕРАЦИЙ / БЕЗ СЕКРЕТОВ", 19, AQUA))
     log_box = RichTextLabel.new()
@@ -268,6 +282,7 @@ func _button(caption: String, highlighted: bool) -> Button:
     var b := Button.new()
     b.text = caption
     b.custom_minimum_size = Vector2(0, 55)
+    b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     b.add_theme_stylebox_override("normal", _style(AQUA if highlighted else PANEL, AQUA if highlighted else BORDER))
     b.add_theme_stylebox_override("hover", _style(Color("a4ffe9") if highlighted else FIELD, AQUA))
     b.add_theme_stylebox_override("disabled", _style(PANEL, BORDER))
@@ -290,10 +305,11 @@ func _style(color: Color, outline: Color) -> StyleBoxFlat:
     return style
 
 
-func _label(content: String, size: int, tone: Color) -> Label:
+func _label(content: String, size: int, tone: Color, wrap: bool = false) -> Label:
     var l := Label.new()
     l.text = content
-    l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    # Never wrap logos, short captions or top-bar labels into single-letter columns.
+    l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wrap else TextServer.AUTOWRAP_OFF
     l.add_theme_font_size_override("font_size", size)
     l.add_theme_color_override("font_color", tone)
     return l
@@ -326,6 +342,8 @@ func _update_buttons() -> void:
 
 
 func _start_bridge() -> void:
+    bridge_is_editor_python = false
+    ping_attempts = 0
     bridge_port = randi_range(32768, 61000)
     var crypto := Crypto.new()
     bridge_secret = crypto.generate_random_bytes(32).hex_encode()
@@ -338,17 +356,31 @@ func _start_bridge() -> void:
         if not OS.has_feature("editor"):
             _fail("В сборке отсутствует модуль serviter-bridge.")
             return
-        executable = "python3"
+        bridge_is_editor_python = true
+        # Prefer the repository virtual environment, which holds the SSH dependencies.
+        var venv_python := ProjectSettings.globalize_path("res://../.venv/bin/python3")
+        executable = venv_python if FileAccess.file_exists(venv_python) else "python3"
         arguments = PackedStringArray([
             ProjectSettings.globalize_path("res://../run_serviter_bridge.py"),
             "--port", str(bridge_port), "--secret", bridge_secret,
         ])
     bridge_pid = OS.create_process(executable, arguments, false)
     if bridge_pid <= 0:
-        _fail("Не удалось запустить локальный модуль SSH. Проверьте установку Python.")
+        _fail(_bridge_startup_error())
         return
     startup_timer.start()
     _log("Защищённый модуль запущен; ожидание локального соединения.")
+
+
+func _bridge_startup_error() -> String:
+    if bridge_is_editor_python:
+        return ("Локальный Python-модуль не запустился. В корне репозитория установите " +
+            "зависимости: python3 -m pip install -r requirements.txt; " +
+            "для виртуального окружения используйте .venv/bin/python3. " +
+            "После установки откройте проект повторно.")
+    return ("Встроенный SSH-модуль не запустился. Проверьте, что Serviter.app распакован " +
+        "целиком, и разрешите запуск в настройках безопасности macOS. " +
+        "Не отключайте защиту macOS целиком.")
 
 
 func _on_startup_timer() -> void:
@@ -356,9 +388,13 @@ func _on_startup_timer() -> void:
         return
     if ping_attempts >= 35:
         startup_timer.stop()
-        _fail("Локальный модуль не ответил. Проверьте версию приложения или Python-зависимости.")
+        _fail(_bridge_startup_error())
         return
     ping_attempts += 1
+    if bridge_pid > 0 and not OS.is_process_running(bridge_pid):
+        startup_timer.stop()
+        _fail(_bridge_startup_error())
+        return
     _request_local("health", {})
 
 
