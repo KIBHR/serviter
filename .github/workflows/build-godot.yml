@@ -42,6 +42,11 @@ jobs:
           set -o pipefail
           /tmp/Godot_v4.7.2-stable_linux.x86_64 --headless --path godot --editor --quit 2>&1 | tee /tmp/godot-import.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|Parse Error:|Parser Error:' /tmp/godot-import.log
+      - name: Smoke-test UI startup (catches runtime invalid method calls)
+        run: |
+          set -o pipefail
+          /tmp/Godot_v4.7.2-stable_linux.x86_64 --headless --path godot --quit-after 20 2>&1 | tee /tmp/godot-runtime.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|Invalid call|Parse Error:|Parser Error:' /tmp/godot-runtime.log
 
   package-bridge-intel:
     needs: check
