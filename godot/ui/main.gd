@@ -254,7 +254,8 @@ func _start_bridge() -> void:
     bridge_port = randi_range(32768, 61000)
     var crypto := Crypto.new()
     bridge_secret = crypto.generate_random_bytes(32).hex_encode()
-    var bridge_path := OS.get_executable_path().get_base_dir().path_join("serviter-bridge")
+    var helper_name := "serviter-bridge-x86_64" if OS.has_feature("x86_64") else "serviter-bridge-arm64"
+    var bridge_path := OS.get_executable_path().get_base_dir().path_join(helper_name)
     var executable := bridge_path
     var arguments := PackedStringArray(["--port", str(bridge_port), "--secret", bridge_secret])
     if not FileAccess.file_exists(bridge_path):
