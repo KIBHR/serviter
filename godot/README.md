@@ -20,6 +20,25 @@ Serviter starts in **fullscreen mode** (Godot `Window.MODE_FULLSCREEN`). Press *
 
 All labels, fields, action buttons, dialog messages and operation logs use larger type and more legible contrast by default. The default Godot font size is set to **20 pt** in `godot/project.godot` under `[gui]`; programmatically created controls have explicit sizes in `godot/ui/main.gd`, including the `FONT_BODY`, `FONT_BUTTON` and `FONT_LOG` constants. The form remains scrollable, and on narrower screens both settings sections appear in one column.
 
+## UI and localhost helper fixes (v0.2.3)
+
+Short labels in the top bar no longer autowrap vertically. Longer guidance and status
+messages still wrap; narrow windows stack the configuration and action buttons.
+The previously unpainted application background now uses the intended dark color.
+
+If you open **the source project in Godot**, Serviter tries the repository's
+`.venv/bin/python3` first and falls back to `python3`. Install dependencies from
+the repo root with `python3 -m pip install -r requirements.txt` or create and
+activate a `.venv` before launching Godot. If the helper crashes, the UI now
+shows whether the Python helper or packaged macOS helper failed; it never prints
+SSH secrets or tokens. In the **packaged macOS app**, no Python installation is
+required. On macOS, if the helper was blocked, inspect the app's permissions via
+System Settings → Privacy & Security; do not disable Gatekeeper globally.
+
+CI now starts the actual arm64 and Intel packaged SSH helpers and calls their
+localhost health endpoint before releasing the app. It also checks the UI header
+layout and label wrapping in Godot headless mode.
+
 ## macOS app
 
 GitHub Actions workflow **Check and build Serviter Godot for macOS** automatically checks Python, parses the Godot project with Godot 4.7.2, builds separate Apple Silicon and Intel PyInstaller SSH helpers, exports a Universal macOS `.app` using official templates and packages both architecture-specific helpers together. Download **Actions → latest successful run → Artifacts → Serviter-Godot-macOS**. Extract the archive and open `Serviter.app`.

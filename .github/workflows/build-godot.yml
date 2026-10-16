@@ -47,6 +47,12 @@ jobs:
           set -o pipefail
           /tmp/Godot_v4.7.2-stable_linux.x86_64 --headless --path godot --quit-after 20 2>&1 | tee /tmp/godot-runtime.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|Invalid call|Parse Error:|Parser Error:' /tmp/godot-runtime.log
+      - name: Assert responsive header and layout with Godot runtime
+        run: |
+          set -o pipefail
+          /tmp/Godot_v4.7.2-stable_linux.x86_64 --headless --path godot --script res://tests/test_ui.gd 2>&1 | tee /tmp/godot-layout.log
+          grep -F 'Serviter UI layout smoke test passed' /tmp/godot-layout.log
+          ! grep -E 'SCRIPT ERROR:|^ERROR:|Invalid call|Parse Error:|Parser Error:' /tmp/godot-layout.log
 
   package-bridge-intel:
     needs: check
@@ -63,6 +69,8 @@ jobs:
           python -m PyInstaller --noconfirm --clean --onefile --console \
             --name serviter-bridge-x86_64 --add-data 'serviter/remote_worker.py:.' \
             run_serviter_bridge.py
+      - name: Smoke-test Intel packaged SSH helper
+        run: python tests/smoke_bridge.py dist/serviter-bridge-x86_64
       - uses: actions/upload-artifact@v4
         with:
           name: serviter-bridge-x86_64
@@ -122,6 +130,8 @@ jobs:
           file godot/build/macOS/Serviter.app/Contents/MacOS/serviter-bridge-*
           # Ad-hoc signature, not notarized. No signing credentials are stored in GitHub.
           codesign --force --deep --sign - godot/build/macOS/Serviter.app
+          codesign --verify --deep --strict godot/build/macOS/Serviter.app
+          python tests/smoke_bridge.py godot/build/macOS/Serviter.app/Contents/MacOS/serviter-bridge-arm64
           ditto -c -k --sequesterRsrc --keepParent godot/build/macOS/Serviter.app Serviter-Godot-macOS.zip
           ls -lh Serviter-Godot-macOS.zip
       - uses: actions/upload-artifact@v4
