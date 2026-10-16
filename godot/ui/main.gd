@@ -7,9 +7,14 @@ const PANEL := Color("101f2c")
 const FIELD := Color("172c38")
 const BORDER := Color("294957")
 const FG := Color("e4f8f5")
-const MUTED := Color("9aafb6")
+const MUTED := Color("bed2d9")
 const AQUA := Color("66e7d8")
 const GOLD := Color("e6b677")
+
+# Readability settings (points at 100% display scale).
+const FONT_BODY := 20
+const FONT_BUTTON := 20
+const FONT_LOG := 19
 
 const FIELD_INFO := [
     ["host", "SSH-адрес сервера", "212.116.232.118", false],
@@ -36,6 +41,7 @@ var log_box: RichTextLabel
 var indicator: ColorRect
 var fullscreen_button: Button
 var field_grid: GridContainer
+var header_tagline: Label
 var request: HTTPRequest
 var startup_timer: Timer
 var confirm_dialog: ConfirmationDialog
@@ -108,7 +114,9 @@ func _update_responsive_layout() -> void:
     if field_grid == null:
         return
     # On smaller screens, stack the two sections so fields remain readable.
-    field_grid.columns = 1 if size.x < 1020 else 2
+    field_grid.columns = 1 if size.x < 1300 else 2
+    if header_tagline != null:
+        header_tagline.visible = size.x >= 1020
 
 
 func _exit_tree() -> void:
@@ -131,13 +139,13 @@ func _draw_interface() -> void:
     root.add_child(stack)
     var bar := HBoxContainer.new()
     stack.add_child(bar)
-    var logo := _label("SERVITER", 28, AQUA)
+    var logo := _label("SERVITER", 38, AQUA)
     bar.add_child(logo)
     var gap := Control.new()
     gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     bar.add_child(gap)
     fullscreen_button = _button("Оконный режим · F11", false)
-    fullscreen_button.custom_minimum_size = Vector2(190, 37)
+    fullscreen_button.custom_minimum_size = Vector2(255, 50)
     fullscreen_button.tooltip_text = "F11 — переключить полный экран; Esc — выйти из полного экрана."
     fullscreen_button.pressed.connect(_toggle_fullscreen)
     bar.add_child(fullscreen_button)
@@ -145,12 +153,13 @@ func _draw_interface() -> void:
     indicator.custom_minimum_size = Vector2(9, 9)
     indicator.color = GOLD
     bar.add_child(indicator)
-    var tagline := _label("LOCAL DEPLOY / GODOT 4", 12, MUTED)
+    var tagline := _label("LOCAL DEPLOY / GODOT 4", 17, MUTED)
     bar.add_child(tagline)
+    header_tagline = tagline
 
-    var title := _label("Публикация сайта без риска для игрового API", 21, FG)
+    var title := _label("Публикация сайта без риска для игрового API", 30, FG)
     stack.add_child(title)
-    var hint := _label("Шифрованный SSH/SFTP · проверка ключа · отдельный Apache vhost · HTTPS · откат", 13, MUTED)
+    var hint := _label("Шифрованный SSH/SFTP · проверка ключа · отдельный Apache vhost · HTTPS · откат", 19, MUTED)
     stack.add_child(hint)
     _rule(stack)
 
@@ -186,16 +195,16 @@ func _draw_interface() -> void:
     rollback_button.pressed.connect(_confirm_rollback)
     controls.add_child(rollback_button)
 
-    status_label = _label("Запуск защищённого локального модуля…", 13, MUTED)
+    status_label = _label("Запуск защищённого локального модуля…", FONT_BODY, MUTED)
     stack.add_child(status_label)
-    stack.add_child(_label("ЖУРНАЛ ОПЕРАЦИЙ / БЕЗ СЕКРЕТОВ", 12, AQUA))
+    stack.add_child(_label("ЖУРНАЛ ОПЕРАЦИЙ / БЕЗ СЕКРЕТОВ", 19, AQUA))
     log_box = RichTextLabel.new()
     log_box.bbcode_enabled = false
     log_box.scroll_following = true
-    log_box.custom_minimum_size = Vector2(0, 125)
+    log_box.custom_minimum_size = Vector2(0, 145)
     log_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
     log_box.add_theme_color_override("default_color", MUTED)
-    log_box.add_theme_font_size_override("normal_font_size", 12)
+    log_box.add_theme_font_size_override("normal_font_size", FONT_LOG)
     stack.add_child(log_box)
     _log("Пароли и GitHub Token остаются в оперативной памяти приложения.")
     _log("При первом подключении сверьте SHA256-отпечаток SSH с панелью провайдера VPS.")
@@ -218,11 +227,13 @@ func _draw_interface() -> void:
     pin_dialog.add_child(pin_content)
     pin_instructions = Label.new()
     pin_instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    pin_instructions.custom_minimum_size = Vector2(600, 155)
+    pin_instructions.custom_minimum_size = Vector2(600, 205)
+    pin_instructions.add_theme_font_size_override("font_size", FONT_BODY)
     pin_content.add_child(pin_instructions)
     pin_input = LineEdit.new()
     pin_input.placeholder_text = "SHA256:..."
-    pin_input.custom_minimum_size = Vector2(600, 38)
+    pin_input.custom_minimum_size = Vector2(600, 50)
+    pin_input.add_theme_font_size_override("font_size", FONT_BODY)
     pin_content.add_child(pin_input)
     pin_dialog.register_text_enter(pin_input)
     _update_buttons()
@@ -232,21 +243,22 @@ func _column(title: String) -> VBoxContainer:
     var box := VBoxContainer.new()
     box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     box.add_theme_constant_override("separation", 8)
-    box.add_child(_label(title, 14, AQUA))
+    box.add_child(_label(title, 22, AQUA))
     return box
 
 
 func _field(box: VBoxContainer, id: String, description: String, example: String, secret: bool) -> void:
-    box.add_child(_label(description, 13, MUTED))
+    box.add_child(_label(description, FONT_BODY, MUTED))
     var entry := LineEdit.new()
-    entry.custom_minimum_size = Vector2(0, 37)
+    entry.custom_minimum_size = Vector2(0, 53)
+    entry.add_theme_font_size_override("font_size", FONT_BODY)
     entry.text = example
     entry.placeholder_text = "Не указан" if example.is_empty() else example
     entry.secret = secret
     entry.add_theme_stylebox_override("normal", _style(FIELD, BORDER))
     entry.add_theme_stylebox_override("focus", _style(FIELD, AQUA))
     entry.add_theme_color_override("font_color", FG)
-    entry.add_theme_color_override("font_placeholder_color", MUTED.darkened(0.25))
+    entry.add_theme_color_override("font_placeholder_color", MUTED.darkened(0.08))
     entry.text_changed.connect(func(_new_text: String): _invalidate())
     box.add_child(entry)
     fields[id] = entry
@@ -255,13 +267,13 @@ func _field(box: VBoxContainer, id: String, description: String, example: String
 func _button(caption: String, highlighted: bool) -> Button:
     var b := Button.new()
     b.text = caption
-    b.custom_minimum_size = Vector2(0, 44)
+    b.custom_minimum_size = Vector2(0, 55)
     b.add_theme_stylebox_override("normal", _style(AQUA if highlighted else PANEL, AQUA if highlighted else BORDER))
     b.add_theme_stylebox_override("hover", _style(Color("a4ffe9") if highlighted else FIELD, AQUA))
     b.add_theme_stylebox_override("disabled", _style(PANEL, BORDER))
     b.add_theme_color_override("font_color", BG if highlighted else FG)
     b.add_theme_color_override("font_disabled_color", MUTED.darkened(0.35))
-    b.add_theme_font_size_override("font_size", 13)
+    b.add_theme_font_size_override("font_size", FONT_BUTTON)
     return b
 
 
@@ -281,6 +293,7 @@ func _style(color: Color, outline: Color) -> StyleBoxFlat:
 func _label(content: String, size: int, tone: Color) -> Label:
     var l := Label.new()
     l.text = content
+    l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     l.add_theme_font_size_override("font_size", size)
     l.add_theme_color_override("font_color", tone)
     return l
