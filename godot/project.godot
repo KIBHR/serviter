@@ -3,7 +3,7 @@ config_version=5
 
 [application]
 config/name="Serviter"
-config/version="0.2.2"
+config/version="0.2.3"
 run/main_scene="res://ui/main.tscn"
 
 [display]
