@@ -39,6 +39,7 @@ var startup_timer: Timer
 var confirm_dialog: ConfirmationDialog
 var pin_dialog: ConfirmationDialog
 var pin_input: LineEdit
+var pin_instructions: Label
 var pending_confirmation := ""
 var pending_request := ""
 var bridge_pid := -1
@@ -156,13 +157,25 @@ func _draw_interface() -> void:
     add_child(confirm_dialog)
     pin_dialog = ConfirmationDialog.new()
     pin_dialog.title = "Проверка подлинности SSH-сервера"
-    pin_dialog.dialog_text = "Сверьте SSH SHA256-отпечаток через доверенный канал. Вставьте его ниже точно как показано."
+    # Godot 4 ConfirmationDialog lays out a direct child Control.
+    # Keep its required built-in label, but hide it and present a VBoxContainer.
+    pin_dialog.dialog_text = ""
+    pin_dialog.get_label().hide()
     pin_dialog.confirmed.connect(_confirmed_pin)
     add_child(pin_dialog)
+    var pin_content := VBoxContainer.new()
+    pin_content.custom_minimum_size = Vector2(600, 0)
+    pin_content.add_theme_constant_override("separation", 12)
+    pin_dialog.add_child(pin_content)
+    pin_instructions = Label.new()
+    pin_instructions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    pin_instructions.custom_minimum_size = Vector2(600, 155)
+    pin_content.add_child(pin_instructions)
     pin_input = LineEdit.new()
     pin_input.placeholder_text = "SHA256:..."
-    pin_input.custom_minimum_size = Vector2(500, 38)
-    pin_dialog.get_vbox().add_child(pin_input)
+    pin_input.custom_minimum_size = Vector2(600, 38)
+    pin_content.add_child(pin_input)
+    pin_dialog.register_text_enter(pin_input)
     _update_buttons()
 
 
@@ -335,7 +348,7 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
                 _send_command("inspect")
             else:
                 checked_fingerprint = key
-                pin_dialog.dialog_text = ("SSH: " + str(fields["host"].text) +
+                pin_instructions.text = ("SSH: " + str(fields["host"].text) +
                     "\nТип ключа: " + str(details.get("type", "")) +
                     "\nПРОВЕРЬТЕ ЧЕРЕЗ ПАНЕЛЬ VPS:\n" + key +
                     "\n\nВведите отпечаток точно. Не подтверждайте наугад.")
