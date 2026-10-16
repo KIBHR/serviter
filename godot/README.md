@@ -14,7 +14,7 @@ Install Godot 4.7.2 standard edition and Python 3.11+ with packages from repo ro
 
 ## macOS app
 
-GitHub Actions workflow **Check and build Serviter Godot for macOS** automatically checks Python, parses the Godot project with Godot 4.7.2, builds a PyInstaller native helper, exports a macOS `.app` using official templates and packages them together. Download **Actions → latest successful run → Artifacts → Serviter-Godot-macOS**. Extract the archive and open `Serviter.app`.
+GitHub Actions workflow **Check and build Serviter Godot for macOS** automatically checks Python, parses the Godot project with Godot 4.7.2, builds separate Apple Silicon and Intel PyInstaller SSH helpers, exports a Universal macOS `.app` using official templates and packages both architecture-specific helpers together. Download **Actions → latest successful run → Artifacts → Serviter-Godot-macOS**. Extract the archive and open `Serviter.app`.
 
 The build is **not Developer ID notarized**. macOS Gatekeeper may block it until manually permitted in the system security settings. Do not blindly disable Gatekeeper. For software distribution to other people, properly sign and notarize the app.
 
