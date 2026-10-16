@@ -43,8 +43,30 @@ jobs:
           /tmp/Godot_v4.7.2-stable_linux.x86_64 --headless --path godot --editor --quit 2>&1 | tee /tmp/godot-import.log
           ! grep -E 'SCRIPT ERROR:|^ERROR:|Parse Error:|Parser Error:' /tmp/godot-import.log
 
-  package-godot-macos:
+  package-bridge-intel:
     needs: check
+    runs-on: macos-15-intel
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Build Intel macOS SSH bridge
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --console \
+            --name serviter-bridge-x86_64 --add-data 'serviter/remote_worker.py:.' \
+            run_serviter_bridge.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: serviter-bridge-x86_64
+          path: dist/serviter-bridge-x86_64
+          retention-days: 3
+          if-no-files-found: error
+
+  package-godot-macos:
+    needs: [check, package-bridge-intel]
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -54,12 +76,16 @@ jobs:
           python-version: '3.12'
       - name: Install bridge build requirements
         run: python -m pip install -r requirements-dev.txt
-      - name: Build local SSH bridge executable
+      - name: Build Apple Silicon SSH bridge executable
         run: |
           python -m PyInstaller --noconfirm --clean --onefile --console \
-            --name serviter-bridge \
+            --name serviter-bridge-arm64 \
             --add-data 'serviter/remote_worker.py:.' \
             run_serviter_bridge.py
+      - uses: actions/download-artifact@v4
+        with:
+          name: serviter-bridge-x86_64
+          path: /tmp/intel-bridge
       - name: Get official Godot editor and export template
         run: |
           curl -L --fail --retry 3 --retry-delay 5 \
@@ -85,8 +111,10 @@ jobs:
           mkdir -p godot/build/macOS
           "$GODOT" --headless --path godot --export-release macOS build/macOS/Serviter.app
           test -d godot/build/macOS/Serviter.app/Contents/MacOS
-          cp dist/serviter-bridge godot/build/macOS/Serviter.app/Contents/MacOS/serviter-bridge
-          chmod +x godot/build/macOS/Serviter.app/Contents/MacOS/serviter-bridge
+          cp dist/serviter-bridge-arm64 godot/build/macOS/Serviter.app/Contents/MacOS/serviter-bridge-arm64
+          cp /tmp/intel-bridge/serviter-bridge-x86_64 godot/build/macOS/Serviter.app/Contents/MacOS/serviter-bridge-x86_64
+          chmod +x godot/build/macOS/Serviter.app/Contents/MacOS/serviter-bridge-*
+          file godot/build/macOS/Serviter.app/Contents/MacOS/serviter-bridge-*
           # Ad-hoc signature, not notarized. No signing credentials are stored in GitHub.
           codesign --force --deep --sign - godot/build/macOS/Serviter.app
           ditto -c -k --sequesterRsrc --keepParent godot/build/macOS/Serviter.app Serviter-Godot-macOS.zip
