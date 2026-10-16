@@ -16,6 +16,10 @@ Install Godot 4.7.2 standard edition and Python 3.11+ with packages from repo ro
 
 Serviter starts in **fullscreen mode** (Godot `Window.MODE_FULLSCREEN`). Press **F11** or click **«Оконный режим · F11»** in the top bar to switch to windowed mode. Press **Esc** while fullscreen to leave fullscreen. The two configuration columns automatically stack vertically on narrower screens; scroll to reach all fields.
 
+## Larger, readable type (v0.2.2)
+
+All labels, fields, action buttons, dialog messages and operation logs use larger type and more legible contrast by default. The default Godot font size is set to **20 pt** in `godot/project.godot` under `[gui]`; programmatically created controls have explicit sizes in `godot/ui/main.gd`, including the `FONT_BODY`, `FONT_BUTTON` and `FONT_LOG` constants. The form remains scrollable, and on narrower screens both settings sections appear in one column.
+
 ## macOS app
 
 GitHub Actions workflow **Check and build Serviter Godot for macOS** automatically checks Python, parses the Godot project with Godot 4.7.2, builds separate Apple Silicon and Intel PyInstaller SSH helpers, exports a Universal macOS `.app` using official templates and packages both architecture-specific helpers together. Download **Actions → latest successful run → Artifacts → Serviter-Godot-macOS**. Extract the archive and open `Serviter.app`.
