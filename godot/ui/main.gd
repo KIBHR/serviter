@@ -45,7 +45,7 @@ var bridge_pid := -1
 var bridge_port := 0
 var bridge_secret := ""
 var ping_attempts := 0
-var ready := false
+var bridge_ready := false
 var busy := false
 var checked := false
 var checked_fingerprint := ""
@@ -245,9 +245,9 @@ func _invalidate() -> void:
 func _update_buttons() -> void:
     if check_button == null:
         return
-    check_button.disabled = not ready or busy
-    publish_button.disabled = not ready or busy or not checked
-    rollback_button.disabled = not ready or busy or not checked
+    check_button.disabled = not bridge_ready or busy
+    publish_button.disabled = not bridge_ready or busy or not checked
+    rollback_button.disabled = not bridge_ready or busy or not checked
 
 
 func _start_bridge() -> void:
@@ -276,7 +276,7 @@ func _start_bridge() -> void:
 
 
 func _on_startup_timer() -> void:
-    if ready or pending_request != "":
+    if bridge_ready or pending_request != "":
         return
     if ping_attempts >= 35:
         startup_timer.stop()
@@ -309,7 +309,7 @@ func _on_request_completed(result: int, response_code: int, _headers: PackedStri
     pending_request = ""
     if action == "health":
         if result == HTTPRequest.RESULT_SUCCESS and response_code == 200:
-            ready = true
+            bridge_ready = true
             startup_timer.stop()
             status_label.text = "Готов к подключению. Введите параметры сервера и репозитория."
             indicator.color = AQUA
@@ -372,7 +372,7 @@ func _config() -> Dictionary:
 
 
 func _send_command(action: String, extra: Dictionary = {}) -> void:
-    if not ready or busy:
+    if not bridge_ready or busy:
         return
     var config := _config()
     if action in ["publish", "rollback"] and (not checked or JSON.stringify(config) != last_config_fingerprint):
