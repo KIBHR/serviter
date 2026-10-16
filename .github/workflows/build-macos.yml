@@ -1,0 +1,46 @@
+name: Check and build Serviter for macOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m compileall -q serviter tests
+      - run: python -m pytest -q
+
+  package-macos:
+    needs: check
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Build unsigned macOS app
+        run: |
+          python -m PyInstaller --noconfirm --clean --windowed \
+            --name Serviter \
+            --osx-bundle-identifier asia.adt.serviter \
+            --add-data 'serviter/remote_worker.py:.' \
+            run_serviter.py
+          ditto -c -k --sequesterRsrc --keepParent dist/Serviter.app dist/Serviter-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Serviter-macOS-unsigned
+          path: dist/Serviter-macOS.zip
+          if-no-files-found: error
+          retention-days: 14
